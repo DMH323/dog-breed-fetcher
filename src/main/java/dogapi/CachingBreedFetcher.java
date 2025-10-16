@@ -16,6 +16,7 @@ public class CachingBreedFetcher implements BreedFetcher {
     private int callsMade = 0;
     private final BreedFetcher fetcher;
     private final Map<String, List<String>> cache = new HashMap<>();
+
     public CachingBreedFetcher(BreedFetcher fetcher) {
         this.fetcher = fetcher;
     }
@@ -29,15 +30,22 @@ public class CachingBreedFetcher implements BreedFetcher {
             return new ArrayList<>(cache.get(lowerBreed));
         }
 
-        // Not cached yet → call wrapped fetcher and increment counter
-        List<String> subBreeds = fetcher.getSubBreeds(lowerBreed);
+        // Always count the attempt to fetch — even if it fails
         callsMade++;
 
-        // Store a copy in cache
-        cache.put(lowerBreed, new ArrayList<>(subBreeds));
+        try {
+            List<String> subBreeds = fetcher.getSubBreeds(lowerBreed);
 
-        // Return a copy to avoid external modification
-        return new ArrayList<>(subBreeds);
+            // Cache the result (only if successful)
+            cache.put(lowerBreed, new ArrayList<>(subBreeds));
+
+            // Return a defensive copy
+            return new ArrayList<>(subBreeds);
+
+        } catch (BreedNotFoundException e) {
+            // Do not cache failed results
+            throw e; // rethrow to propagate exception
+        }
     }
 
     public int getCallsMade() {
